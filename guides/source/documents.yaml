@@ -53,6 +53,10 @@
       name: Action View Form Helpers
       url: form_helpers.html
       description: Guide to using built-in Form helpers.
+    -
+      name: Webpacker Overview
+      url: webpacker_overview.html
+      description: This guide covers the official Webpack integration with Rails
 -
   name: Controllers
   documents:
