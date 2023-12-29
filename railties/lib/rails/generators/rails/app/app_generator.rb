@@ -50,6 +50,10 @@ module Rails
       copy_file "README.md", "README.md"
     end
 
+    def rubocop
+      copy_file ".rubocop.yml", ".rubocop.yml"
+    end
+
     def ruby_version
       template "ruby-version", ".ruby-version"
     end
@@ -332,6 +336,7 @@ module Rails
         build(:node_version) if using_node?
         build(:ruby_version)
         build(:configru)
+        build(:rubocop)
 
         unless options[:skip_git]
           build(:gitignore)

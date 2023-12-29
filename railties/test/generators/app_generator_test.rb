@@ -9,6 +9,7 @@ DEFAULT_APP_FILES = %w(
   .gitignore
   .dockerignore
   .ruby-version
+  .rubocop.yml
   README.md
   Gemfile
   Rakefile
