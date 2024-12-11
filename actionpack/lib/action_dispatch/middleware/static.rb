@@ -18,9 +18,9 @@ module ActionDispatch
   #
   # Only files in the root directory are served; path traversal is denied.
   class Static
-    def initialize(app, path, index: "index", headers: {})
+    def initialize(app, path, index: "index", headers: {}, rules: [])
       @app = app
-      @file_handler = FileHandler.new(path, index: index, headers: headers)
+      @file_handler = FileHandler.new(path, index: index, headers: headers, rules: rules)
     end
 
     def call(env)
@@ -52,7 +52,7 @@ module ActionDispatch
       "identity" => nil
     }
 
-    def initialize(root, index: "index", headers: {}, precompressed: %i[ br gzip ], compressible_content_types: /\A(?:text\/|application\/javascript|image\/svg\+xml)/)
+    def initialize(root, index: "index", headers: {}, precompressed: %i[ br gzip ], compressible_content_types: /\A(?:text\/|application\/javascript|image\/svg\+xml)/, rules: [])
       @root = root.chomp("/").b
       @index = index
 
@@ -60,6 +60,8 @@ module ActionDispatch
       @compressible_content_types = compressible_content_types
 
       @file_server = ::Rack::Files.new(@root, headers)
+
+      @rules = rules
     end
 
     def call(env)
@@ -71,12 +73,43 @@ module ActionDispatch
 
       if request.get? || request.head?
         if found = find_file(request.path_info, accept_encoding: request.accept_encoding)
+          apply_header_rules(*found)
           serve request, *found
         end
       end
     end
 
     private
+      RULES = {
+        txt: /\.txt$/,
+        js: /\.m?js$/,
+        css: /\.css$/,
+        audio: /\.(mp3|wav|ogg)$/,
+        image: /\.(png|jpe?g|gif|svg|webp)$/,
+        video: /\.(mp4|mov|avi|mkv)$/,
+        font: /\.(woff|woff2|ttf|otf)$/,
+        ico: /\.ico$/,
+        digested: /-[a-z0-9]{8}\..*$/
+      }
+
+      def apply_header_rules(path_info, headers)
+        @rules.each do |rule, rule_headers|
+          applies = if rule == :all
+            true
+          elsif pattern = RULES[rule]
+            path_info.match?(pattern)
+          elsif rule.is_a?(Regexp)
+            path_info.match?(rule)
+          elsif rule.is_a?(String)
+            path_info =~ /\/#{rule}/
+          else
+            false
+          end
+
+          headers.merge!(rule_headers) if applies
+        end
+      end
+
       def serve(request, filepath, content_headers)
         original, request.path_info =
           request.path_info, ::Rack::Utils.escape_path(filepath).b

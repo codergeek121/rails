@@ -3,6 +3,42 @@
 require "abstract_unit"
 require "zlib"
 
+class StaticRulesTest < ActiveSupport::TestCase
+  DummyApp = lambda { |env|
+    [200, { Rack::CONTENT_TYPE => "text/plain" }, ["Hello, World!"]]
+  }
+
+  def test_exact_file_match_applies_rule
+    build_app(rules: [
+      [ "robots.txt", { "cache-control" => "no-cache" } ]
+    ])
+
+    assert_equal "no-cache", get("/robots.txt").headers["cache-control"]
+  end
+
+  def test_txt_symbol_applies_to_all_txt_files
+    build_app(rules: [
+      [ :txt, { "txt-rule" => "applied" } ]
+    ])
+
+    assert_equal "applied", get("/robots.txt").headers["txt-rule"]
+    assert_nil get("/foo.html").headers["txt-rule"]
+  end
+
+  private
+    def build_app(index: "index", headers: {}, rules: [])
+      @app = Rack::Lint.new(
+        ActionDispatch::Static.new(
+          Rack::Lint.new(DummyApp), "#{FIXTURE_LOAD_PATH}/public_rules", index: index, headers: headers, rules: rules
+        ),
+      )
+    end
+
+    def get(path, headers = {})
+      Rack::MockRequest.new(@app).request("GET", path, headers)
+    end
+end
+
 class StaticTest < ActiveSupport::TestCase
   DummyApp = lambda { |env|
     [200, { Rack::CONTENT_TYPE => "text/plain" }, ["Hello, World!"]]
